@@ -68,6 +68,7 @@ dim CMD
 	case 0: 'SetRegisterValue 3,21,1
 	case 1: SetRegisterValue 3,20,1
 	case 2: SetRegisterValue 3,20,2
+			call CMDStop()
 	case 3: SetRegisterValue 3,20,3
 			call CMDOC(1)
 	case 4: SetRegisterValue 3,20,4
@@ -77,6 +78,14 @@ dim CMD
 	END SELECT
 	
 end sub
+
+sub CMDStop()
+   'SetRegisterValue 3,8,0
+   SetRegisterValue 3,9,0
+   SetRegisterValue 3,1,0
+   SetRegisterValue 3,20,0
+end sub
+
 
 sub CMDOC(Mode)
 dim CP : CP = GetRegisterValue(3,10)      'Current Posisi
@@ -150,3 +159,4 @@ end sub
 	   'IDX: 9 : Opened/Closed (0:normal, 1:opened, 2:closed)
 	   'IDX: 10: POSISI PINTU (Dari Potensiometer RS485)
 	   
+
