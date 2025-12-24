@@ -1,162 +1,133 @@
+'PROGRAM : DAM GATE SIMULATION
+'MAPPING REGISTER 4XXXX
+'40001	'CURPOS MM		
+'40002	'Command 		(0: noCommand, 1:Reset, 2:Stop, 3:Open, 4:Close, 5:ESD)
+'40003	'MINPOS MM 
+'40004	'MAXPOS MM
+'40005	'SPAN/STEP MM
+'40006	'L/R STATUS		(0: ERROR, 1:LOCAL, 2:REMOTE)
+'40007	'O/C STATUS 	(0:NOACTION, 1:OPENED, 2:CLOSED)
+'40008	'FULLY O/C		(0:NORMAL, 1:FULLY OPEN, 2:FULLY CLOSE)
+'40009	'OVER TORQUE  ` (0: NO ALARM, 1:OVER TORQUE OPENED, 2:OVER TORQUE CLOSED) 
+'40010	'OVERLOAD     ` (0: NO OVERLOAD, 1:OVERLOAD) 
+'40011	'EARTH LEAKED  `(0: NO EARTH LEAKED, 1:EARTH LEAKED)
+'40012	'ESD STATUS		(0: NO ESD, 1:ESD)
+'40013	'SPARE
+'40014	'TICK 			(0-65535)
+'40015	'SECOND
+'40016	'MINUTE
+'40017	'HOUR
+'40018	'DAY
+'40019	'MONTH
+'40020	'YEAR
+'40021	'DEFAULT MINPOS		'not delete when init
+'40022	'DEFAULT MAXPOS		'not delete when init
+'40023	'DEFAULT Span		'not delete when init
+
 call Main()
 
-
 sub Main()
-	'Fungsi Jam di Input Reg. 3x
-	call GetDateTime(2) 'GDT(2)
-	
-	'Inisialisasi 
-	call SetInit()
+	call GetDateTime()
 	call Process()
 end sub
 
-
-
-'REG3X4X = 2 utk AI, 3 utk AO
-sub GetDateTime(REG3X4X)
-dim d
-dim addS : addS = 1
-dim addM : addM = 2
-dim addH : addH = 3
-dim addD : addD = 4
-dim addN : addN = 5
-dim addY : addY = 6 
-
-	d = Now()
-	SetRegisterValue REG3X4X, addS, DatePart("s", d)  ' Seconds (0-59) -> Register 400001
-	SetRegisterValue REG3X4X, addM, DatePart("n", d)  ' Minutes (0-59) -> Register 400002
-	SetRegisterValue REG3X4X, addH, DatePart("h", d)  ' Hours (0-23) -> Register 400003
-					 
-	SetRegisterValue REG3X4X, addD, DatePart("d", d)  ' Day of month (1-31) -> Register 400004
-	SetRegisterValue REG3X4X, addM, DatePart("m", d)  ' Month (1-12) -> Register 400005
-	SetRegisterValue REG3X4X, addY, DatePart("yyyy", d) ' Year (e.g., 2025) -> Register 400006
-
-	'Untuk memudahkan debug, salin nilai detik ke address 40031
-	SetRegisterValue 3, 40, DatePart("s", d)  ' Seconds (0-59) -> Register 40040
-	
-end Sub
-
 sub SetInit()
-dim isInit
-	isInit = GetRegisterValue(3,0)
+dim isInit:	isInit = GetRegisterValue(3,1)
 	if isInit = 1 Then
 	   Inisialisasi()
 	end if    
 end Sub
 
 sub Inisialisasi()
-'Trigger: 40001: 1 				'(3,0,1)
-   SetRegisterValue 3,1,0   	'No Command 
-   SetRegisterValue 3,2,0   	'No STATUS Command 
-   SetRegisterValue 3,3,0   	'L/R : Default 0 : Local 
-   SetRegisterValue 3,4,0   	'MinPos MM
-   SetRegisterValue 3,5,0   	'MinPos MM
-   SetRegisterValue 3,6,6000    'MaxPos MM
-   SetRegisterValue 3,7,500     'STEP MM Saat Open Atau Close
-   SetRegisterValue 3,8,0		'Fully Open/Close (1:Open, 2:Close) 
-   SetRegisterValue 3,9,0		'Opened/Closed (1:Opened, 2:Closed) 
-   SetRegisterValue 3,10,0      'CurPos MM
-   SetRegisterValue 3,20,0		'Reset Current Cmd
-   SetRegisterValue 3,0,0       'Reset Succesed
-   call DebugN(0)				'Reset Debug
+dim i: i=0 : do : SetRegisterValue 3,i,0 :	i=i+1 :   loop until i>=19
+dim dmin : dmin = GetRegisterValue(3,21)
+dim dmax : dmax = GetRegisterValue(3,22)
+dim dsp : dsp = GetRegisterValue(3,23)
+   
+   if dmin <= 0 then 
+	  dmin = 0
+	  SetRegisterValue 3,21,dmin
+   end if 
+   if dmax <= 0 then 
+	  dmax = 6000
+	  SetRegisterValue 3,22,dmax
+   end if 
+   if dsp <=0 then 
+      dsp = 500
+	  SetRegisterValue 3,23,dsp
+   end if 
+   
+   SetRegisterValue 3,2,dmin   	'40004	'MAXPOS MM
+   SetRegisterValue 3,3,dmax   	'40004	'MAXPOS MM
+   SetRegisterValue 3,4,dsp   	'40005	'SPAN/STEP MM
 end sub
 
+sub GetDateTime()
+dim REG4X: REG4X= 3
+dim addR : addR = 13  
+dim d: d = Now()
+dim aTick : aTick = GetRegisterValue(REG4X,addR)
+	if(aTick > 65535) then aTick = 0 else aTick = aTick + 1
+	SetRegisterValue REG4X, addR+0, aTick
+	SetRegisterValue REG4X, addR+1, DatePart("s", d)  ' Seconds (0-59) -> Register 400001
+	SetRegisterValue REG4X, addR+2, DatePart("n", d)  ' Minutes (0-59) -> Register 400002
+	SetRegisterValue REG4X, addR+3, DatePart("h", d)  ' Hours (0-23) -> Register 400003
+	SetRegisterValue REG4X, addR+4, DatePart("d", d)  ' Day of month (1-31) -> Register 400004
+	SetRegisterValue REG4X, addR+5, DatePart("m", d)  ' Month (1-12) -> Register 400005
+	SetRegisterValue REG4X, addR+6, DatePart("yyyy", d) ' Year (e.g., 2025) -> Register 400006
+	
+end sub 
+
 sub Process()
-dim CMD
-	CMD = GetRegisterValue(3,1)
+dim CMD :	CMD = GetRegisterValue(3,1)
 	SELECT CASE CMD
-	case 0: 'SetRegisterValue 3,21,1
-	case 1: SetRegisterValue 3,20,1
-	case 2: SetRegisterValue 3,20,2
-			call CMDStop()
-	case 3: SetRegisterValue 3,20,3
-			call CMDOC(1)
-	case 4: SetRegisterValue 3,20,4
-			call CMDOC(2)
-	
-	case else:
+		case 0: 'Don't Care
+		case 1: call Inisialisasi() 
+		case 2: call CMDStop() 
+		case 3: call CMDOC(1)  
+		case 4: call CMDOC(2) 
+		case else:
 	END SELECT
-	
 end sub
 
 sub CMDStop()
-   'SetRegisterValue 3,8,0
-   SetRegisterValue 3,9,0
    SetRegisterValue 3,1,0
-   SetRegisterValue 3,20,0
+   SetRegisterValue 3,6,0
 end sub
 
 
 sub CMDOC(Mode)
-dim CP : CP = GetRegisterValue(3,10)      'Current Posisi
-dim Span: Span = GetRegisterValue(3,7)	  'Span
-dim PMin: PMin = GetRegisterValue(3,5)    'Min 
-dim PMax: PMax = GetRegisterValue(3,6)    'Max 
-dim NP1 : NP1 = CP + Span    								  'NewPosisi
-dim NP2 : NP2 = CP - Span  								  'NewPosisi
+dim CP : CP = GetRegisterValue(3,0)      'Current Posisi
+dim PMin: PMin = GetRegisterValue(3,2)    'Min 
+dim PMax: PMax = GetRegisterValue(3,3)    'Max 
+dim Span: Span = GetRegisterValue(3,4)	  'Span
+dim NP1 : NP1 = CP + Span    			  'NewPosisi
+dim NP2 : NP2 = CP - Span  				  'NewPosisi
 dim NP   								  'NewPosisi
 dim IsFull : IsFull = False
-	
-'    call DebugN(1)
-'	if(mode<>1 or mode <>2) then exit sub
 	if NP1 > PMax then NP1 = PMax
 	if NP2 < PMin then NP2 = PMin
 	if Mode = 1 then NP = NP1 else if Mode = 2 then NP = NP2
-'    call DebugN(NP)
-	SetRegisterValue 3,10,NP 
+	SetRegisterValue 3,0,NP 
 	
 	if NP >= PMax then 
-	   SetRegisterValue 3,8,1
-	   SetRegisterValue 3,9,0
-	   SetRegisterValue 3,1,0
-	   SetRegisterValue 3,20,0
+	   SetRegisterValue 3,6,0 	'O/C STATUS
+	   SetRegisterValue 3,7,1	'FULLY O/C
+	   SetRegisterValue 3,1,0	'0: noCommand
 	elseif NP <= PMin then
-	   SetRegisterValue 3,8,2
-	   SetRegisterValue 3,9,0
+	   SetRegisterValue 3,6,0
+	   SetRegisterValue 3,7,2
 	   SetRegisterValue 3,1,0
-	   SetRegisterValue 3,20,0
 	else
-	   SetRegisterValue 3,8,0
+	   SetRegisterValue 3,7,0	'FULLY O/C
 	   if mode=1 then 
-		  SetRegisterValue 3,9,1
+		  SetRegisterValue 3,6,1 	'O/C STATUS
 	   elseif mode = 2 then
-		  SetRegisterValue 3,9,2
+		  SetRegisterValue 3,6,2 	'O/C STATUS
 	   end if
 	end if 
 end sub
 
 sub DebugN(N)
-'idx register debug: 50
-	SetRegisterValue 3,50,N		'DEBUG STEP: 2 tidak  di jalankan
+	SetRegisterValue 3,50,N		'DEBUG STEP: N di jalankan
 end sub 
-
-	   'IDX: 0, > 0 : Reset
-	   'IDX: 1:   'Command
-	   '	 0: No Action
-	   '     1: ESD  			
-	   '     2: STOP  			
-	   '     3: OPEN  			:3 Open : OK
-	   '     4: CLOSE			:4 Close : OK 
-	   'IDX: 2 : 'Status
-	   '	 0:0000 0000 : 0  : Normal, No Status CMD
-	   '     0:0000 0001 : 1  : ESD Command Send
-	   '     0:0000 0010 : 2  : STOP Command Send
-	   '     0:0000 0100 : 4  : OPEN Command Send
-	   '     0:0000 1000 : 8  : CLOSE Command Send
-	   '     0:0001 0000 : 16 : OPENED
-	   '     0:0010 0000 : 32 : CLOSED
-	   'IDX: 3 : L/R status
-	   '	 0 : LOCAL
-	   '     1 : REMOTE
-	   'IDX: 4 : ALARM STATUS (16 BIT)
-	   'IDX: 5 : SET POINT NOL (0 %)
-	   'IDX: 6 : SET POINT MAX (100%) dalam MM
-	   'IDX: 7 : STEP Open/Close
-	   'IDX: 8 : 
-	   '	   0 : Status FULLY NORMAL
-	   '	   1 : Status FULLY Open
-	   '	   2 : Status FULLY Close	
-	   'IDX: 9 : Opened/Closed (0:normal, 1:opened, 2:closed)
-	   'IDX: 10: POSISI PINTU (Dari Potensiometer RS485)
-	   
-
